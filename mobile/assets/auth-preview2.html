@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AuthScreen Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    flex-wrap: wrap;
+  }
+
+  .wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .label {
+    color: #7EC8A0; font-size: 11px; font-weight: 700;
+    letter-spacing: 1.5px; text-transform: uppercase;
+  }
+
+  .phone {
+    width: 300px;
+    background: #0c1410;
+    border-radius: 36px;
+    padding: 52px 20px 32px;
+    border: 2px solid #1e2d24;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  }
+
+  /* Logo */
+  .logo-area { text-align: center; margin-bottom: 24px; }
+  .logo-circle {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: rgba(0,135,90,0.12);
+    border: 1.5px solid rgba(0,135,90,0.35);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px; font-size: 26px; color: #00875A;
+  }
+  .logo-title { font-size: 28px; font-weight: 800; color: #00875A; }
+  .logo-sub { font-size: 11px; color: #6B778C; margin-top: 4px; font-weight: 300; letter-spacing: 0.5px; }
+
+  /* ── Official Google button ── */
+  .google-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: #ffffff;
+    border: 1px solid #747775;
+    border-radius: 24px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+
+  /* Google G logo */
+  .g-logo {
+    width: 22px; height: 22px; border-radius: 50%;
+    overflow: hidden; position: relative; flex-shrink: 0;
+  }
+  .g-quad {
+    position: absolute; width: 11px; height: 11px;
+  }
+  .g-q1 { background: #4285F4; top: 0; left: 0; border-radius: 6px 0 0 0; }
+  .g-q2 { background: #EA4335; top: 0; right: 0; border-radius: 0 6px 0 0; }
+  .g-q3 { background: #34A853; bottom: 0; left: 0; border-radius: 0 0 0 6px; }
+  .g-q4 { background: #FBBC05; bottom: 0; right: 0; border-radius: 0 0 6px 0; }
+  .g-inner {
+    position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px;
+    background: #fff; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 900; color: #4285F4;
+  }
+
+  .google-btn-text { font-size: 14px; font-weight: 600; color: #1F1F1F; letter-spacing: 0.1px; }
+
+  /* Divider */
+  .divider { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .div-line { flex: 1; height: 1px; background: #2C4A38; }
+  .div-text { font-size: 11px; color: #6B778C; font-weight: 500; }
+
+  /* Card */
+  .card {
+    background: #161f1a; border: 1px solid #2C4A38;
+    border-radius: 18px; padding: 18px; display: flex;
+    flex-direction: column; gap: 12px;
+  }
+  .card-title { font-size: 19px; font-weight: 700; color: #E8F5EE; }
+
+  .field-label { font-size: 9px; font-weight: 700; color: #6B778C; letter-spacing: 1px; margin-bottom: 5px; }
+  .field-input {
+    background: #0c1410; border: 1.5px solid #2C4A38;
+    border-radius: 10px; padding: 11px 13px; color: #6B778C;
+    font-size: 13px; width: 100%; outline: none;
+  }
+
+  .submit-btn {
+    background: #00875A; border-radius: 12px; padding: 13px;
+    text-align: center; color: white; font-size: 14px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(0,135,90,0.4);
+    letter-spacing: 0.3px;
+  }
+
+  .switch-text { text-align: center; font-size: 12px; color: #6B778C; padding: 2px 0; }
+  .switch-text span { color: #00875A; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- Sign In -->
+<div class="wrapper">
+  <div class="label">Sign In</div>
+  <div class="phone">
+    <div class="logo-area">
+      <div class="logo-circle">◈</div>
+      <div class="logo-title">Taskastic</div>
+      <div class="logo-sub">Stay focused. Get things done.</div>
+    </div>
+
+    <div class="google-btn">
+      <div class="g-logo">
+        <div class="g-quad g-q1"></div>
+        <div class="g-quad g-q2"></div>
+        <div class="g-quad g-q3"></div>
+        <div class="g-quad g-q4"></div>
+        <div class="g-inner">G</div>
+      </div>
+      <span class="google-btn-text">Sign in with Google</span>
+    </div>
+
+    <div class="divider">
+      <div class="div-line"></div>
+      <span class="div-text">or</span>
+      <div class="div-line"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Sign In</div>
+      <div>
+        <div class="field-label">EMAIL</div>
+        <input class="field-input" placeholder="you@example.com" />
+      </div>
+      <div>
+        <div class="field-label">PASSWORD</div>
+        <input class="field-input" type="password" placeholder="••••••••" />
+      </div>
+      <div class="submit-btn">Sign In</div>
+      <div class="switch-text">Don't have an account? <span>Sign Up</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Account -->
+<div class="wrapper">
+  <div class="label">Create Account</div>
+  <div class="phone">
+    <div class="logo-area">
+      <div class="logo-circle">◈</div>
+      <div class="logo-title">Taskastic</div>
+      <div class="logo-sub">Stay focused. Get things done.</div>
+    </div>
+
+    <div class="google-btn">
+      <div class="g-logo">
+        <div class="g-quad g-q1"></div>
+        <div class="g-quad g-q2"></div>
+        <div class="g-quad g-q3"></div>
+        <div class="g-quad g-q4"></div>
+        <div class="g-inner">G</div>
+      </div>
+      <span class="google-btn-text">Sign in with Google</span>
+    </div>
+
+    <div class="divider">
+      <div class="div-line"></div>
+      <span class="div-text">or</span>
+      <div class="div-line"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Create Account</div>
+      <div>
+        <div class="field-label">EMAIL</div>
+        <input class="field-input" placeholder="you@example.com" />
+      </div>
+      <div>
+        <div class="field-label">PASSWORD</div>
+        <input class="field-input" type="password" placeholder="••••••••" />
+      </div>
+      <div class="submit-btn">Create Account</div>
+      <div class="switch-text">Already have an account? <span>Sign In</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
