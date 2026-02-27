@@ -67,7 +67,7 @@ export default function AuthScreen() {
               <Text style={[styles.logoIcon, { color: GREEN }]}>◈</Text>
             </View>
             <Text style={[styles.logoTitle, { color: GREEN }]}>Taskastic</Text>
-            <Text style={[styles.logoSub, { color: theme.textMuted }]}>Stay focused new. Get things done.</Text>
+            <Text style={[styles.logoSub, { color: theme.textMuted }]}>Stay focused. Get things done.</Text>
           </View>
 
           {/* Google Sign-In Button — official branding, always outside card */}
