@@ -50,8 +50,7 @@
           "color": "#00875A",
           "sounds": []
         }
-      ],
-      "expo-web-browser"
+      ]
     ],
     "extra": {
       "eas": {

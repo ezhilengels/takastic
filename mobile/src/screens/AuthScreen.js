@@ -57,7 +57,7 @@ export default function AuthScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
+      <StatusBar barStyle={theme.statusBar} translucent backgroundColor="transparent" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
@@ -159,7 +159,7 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:         { flex: 1 },
+  safe:         { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0 },
   scroll:       { flexGrow: 1, justifyContent: 'center', padding: 24 },
   logoArea:     { alignItems: 'center', marginBottom: 36 },
   logoCircle:   { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },

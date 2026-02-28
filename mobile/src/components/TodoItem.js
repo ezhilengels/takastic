@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { PRIORITY_CONFIG, STATUS_CONFIG } from '../constants/twoTone';
@@ -23,7 +23,7 @@ function getDueDateStatus(iso) {
   return 'upcoming';                       // future → GREEN
 }
 
-export default function TodoItem({ todo, onToggle, onDelete, onEdit }) {
+function TodoItem({ todo, onToggle, onDelete, onEdit }) {
   const { theme } = useTheme();
 
   const rawP = PRIORITY_CONFIG[todo.priority] || PRIORITY_CONFIG.medium;
@@ -72,7 +72,7 @@ export default function TodoItem({ todo, onToggle, onDelete, onEdit }) {
       <TouchableOpacity
         style={[
           styles.checkbox,
-          { borderColor: isCompleted ? GREEN : theme.cardBorder, borderWidth: 2 },
+          { borderColor: isCompleted ? GREEN : theme.checkboxBorder, borderWidth: 2 },
           isCompleted && styles.checkboxDone,
         ]}
         onPress={() => onToggle(todo.id)}
@@ -203,3 +203,5 @@ const styles = StyleSheet.create({
   deleteBtn:  { padding: 8, borderRadius: 8, marginTop: 1 },
   deleteIcon: { fontSize: 15 },
 });
+
+export default memo(TodoItem);

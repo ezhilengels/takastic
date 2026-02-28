@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   SafeAreaView, View, Text, FlatList, TouchableOpacity,
   ActivityIndicator, Modal, KeyboardAvoidingView, Platform,
-  StyleSheet, StatusBar, Switch, TextInput,
+  StyleSheet, StatusBar, Switch, TextInput, Animated, Easing,
 } from 'react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -15,6 +15,150 @@ import FilterBar from './src/components/FilterBar';
 
 const GREEN = '#00875A';
 
+// ─── Smooth spinner ────────────────────────────────────────────────────────
+
+function SmoothSpinner() {
+  const spin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, [spin]);
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  return (
+    <Animated.View style={{ transform: [{ rotate }] }}>
+      <View style={bannerStyles.spinnerRing} />
+    </Animated.View>
+  );
+}
+
+// ─── Header banner ─────────────────────────────────────────────────────────
+
+function HeaderBanner({ activeCount, completedCount, overdueCount, onSettings, session }) {
+  const { theme } = useTheme();
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return { text: 'Good Morning', emoji: '🌤️' };
+    if (h < 17) return { text: 'Good Afternoon', emoji: '☀️' };
+    return { text: 'Good Evening', emoji: '🌙' };
+  };
+  const greeting = getGreeting();
+  const name = session?.user?.user_metadata?.full_name?.split(' ')[0]
+    || session?.user?.email?.split('@')[0]
+    || 'there';
+
+  return (
+    <View style={bannerStyles.banner}>
+      {/* Decorative overlay circles */}
+      <View style={bannerStyles.circle1} />
+      <View style={bannerStyles.circle2} />
+      <View style={bannerStyles.circle3} />
+
+      {/* Top row: greeting + settings */}
+      <View style={bannerStyles.topRow}>
+        <View>
+          <Text style={bannerStyles.greeting}>{greeting.emoji}  {greeting.text}, {name}!</Text>
+          <Text style={bannerStyles.appName}>◈ Taskastic</Text>
+        </View>
+        <TouchableOpacity
+          style={[bannerStyles.settingsBtn, { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.3)' }]}
+          onPress={onSettings}
+        >
+          <Text style={{ fontSize: 18 }}>⚙️</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Stats pills */}
+      <View style={bannerStyles.pillsRow}>
+        <View style={bannerStyles.pill}>
+          <Text style={bannerStyles.pillNum}>{activeCount}</Text>
+          <Text style={bannerStyles.pillLabel}>Active</Text>
+        </View>
+        <View style={bannerStyles.pill}>
+          <Text style={bannerStyles.pillNum}>{completedCount}</Text>
+          <Text style={bannerStyles.pillLabel}>Done</Text>
+        </View>
+        {overdueCount > 0 ? (
+          <View style={[bannerStyles.pill, bannerStyles.overduePill]}>
+            <Text style={[bannerStyles.pillNum, { color: '#FFD6D6' }]}>{overdueCount}</Text>
+            <Text style={[bannerStyles.pillLabel, { color: '#FFD6D6' }]}>Overdue</Text>
+          </View>
+        ) : (
+          <View style={[bannerStyles.pill, bannerStyles.allDonePill]}>
+            <Text style={[bannerStyles.pillNum, { color: '#C8FFE8' }]}>✓</Text>
+            <Text style={[bannerStyles.pillLabel, { color: '#C8FFE8' }]}>On track</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const bannerStyles = StyleSheet.create({
+  banner: {
+    backgroundColor: GREEN,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    marginTop: 4,
+    overflow: 'hidden',
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  // Decorative background circles
+  circle1: {
+    position: 'absolute', width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    top: -50, right: -40,
+  },
+  circle2: {
+    position: 'absolute', width: 100, height: 100, borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    bottom: -30, left: 20,
+  },
+  circle3: {
+    position: 'absolute', width: 60, height: 60, borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    top: 10, right: 90,
+  },
+  topRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    marginBottom: 18,
+  },
+  greeting: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '500', marginBottom: 4 },
+  appName:  { color: '#fff', fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  settingsBtn: {
+    padding: 9, borderRadius: 12, borderWidth: 1,
+  },
+  pillsRow: { flexDirection: 'row', gap: 10 },
+  pill: {
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 12, paddingVertical: 10,
+    alignItems: 'center', borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  overduePill: { backgroundColor: 'rgba(229,72,77,0.25)', borderColor: 'rgba(255,100,100,0.4)' },
+  allDonePill: { backgroundColor: 'rgba(0,200,100,0.2)', borderColor: 'rgba(100,255,180,0.35)' },
+  pillNum:   { color: '#fff', fontSize: 18, fontWeight: '800' },
+  pillLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '600', marginTop: 2 },
+
+  // Smooth spinner ring
+  spinnerRing: {
+    width: 36, height: 36, borderRadius: 18,
+    borderWidth: 3.5,
+    borderColor: GREEN,
+    borderTopColor: 'transparent',
+  },
+});
+
 // ─── Settings modal ────────────────────────────────────────────────────────
 
 function SettingsModal({ visible, onClose }) {
@@ -22,7 +166,7 @@ function SettingsModal({ visible, onClose }) {
   const { signOut } = useAuth();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" hardwareAccelerated onRequestClose={onClose}>
       <TouchableOpacity style={styles.settingsBackdrop} activeOpacity={1} onPress={onClose} />
       <View style={[styles.settingsSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <View style={[styles.handle, { backgroundColor: theme.cardBorder }]} />
@@ -76,6 +220,7 @@ function SettingsModal({ visible, onClose }) {
 
 function MainApp() {
   const { theme } = useTheme();
+  const { session } = useAuth();
   const [filter, setFilter]             = useState('all');
   const [search, setSearch]             = useState('');
   const [modalMode, setModalMode]       = useState(null); // null | 'add' | 'edit'
@@ -143,7 +288,7 @@ function MainApp() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
+      <StatusBar barStyle={theme.statusBar} translucent backgroundColor="transparent" />
 
       <FlatList
         style={styles.list}
@@ -153,50 +298,34 @@ function MainApp() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerRow}>
-                <View>
-                  <Text style={[styles.title, { color: GREEN }]}>◈ Taskastic</Text>
-                  <Text style={[styles.subtitle, { color: theme.textMuted }]}>Stay focused. Get things done.</Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.settingsBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                  onPress={() => setShowSettings(true)}
-                >
-                  <Text>⚙️</Text>
-                </TouchableOpacity>
+            {/* Pleasant header banner */}
+            <HeaderBanner
+              activeCount={activeCount}
+              completedCount={completedCount}
+              overdueCount={overdueCount}
+              onSettings={() => setShowSettings(true)}
+              session={session}
+            />
+
+            {/* Offline banner */}
+            {!isOnline && (
+              <View style={styles.offlineBar}>
+                <Text style={styles.offlineText}>
+                  ☁️  You're offline — changes will sync when reconnected
+                  {pendingCount > 0 ? ` (${pendingCount} pending)` : ''}
+                </Text>
               </View>
+            )}
 
-              {/* Offline banner */}
-              {!isOnline && (
-                <View style={styles.offlineBar}>
-                  <Text style={styles.offlineText}>
-                    ☁️  You're offline — changes will sync when reconnected
-                    {pendingCount > 0 ? ` (${pendingCount} pending)` : ''}
-                  </Text>
-                </View>
-              )}
-
-              {/* Pending-sync badge when back online but queue not yet flushed */}
-              {isOnline && pendingCount > 0 && (
-                <View style={styles.syncBar}>
-                  <ActivityIndicator size="small" color={GREEN} style={{ marginRight: 6 }} />
-                  <Text style={styles.syncText}>
-                    Syncing {pendingCount} change{pendingCount !== 1 ? 's' : ''}…
-                  </Text>
-                </View>
-              )}
-
-              {/* Overdue banner — only shows when tasks are actually past their due date */}
-              {overdueCount > 0 && (
-                <View style={styles.overdueBar}>
-                  <Text style={styles.overdueText}>
-                    ⚠️  {overdueCount} task{overdueCount !== 1 ? 's' : ''} past due
-                  </Text>
-                </View>
-              )}
-            </View>
+            {/* Pending-sync badge when back online but queue not yet flushed */}
+            {isOnline && pendingCount > 0 && (
+              <View style={[styles.syncBar, { marginBottom: 12 }]}>
+                <ActivityIndicator size="small" color={GREEN} style={{ marginRight: 6 }} />
+                <Text style={styles.syncText}>
+                  Syncing {pendingCount} change{pendingCount !== 1 ? 's' : ''}…
+                </Text>
+              </View>
+            )}
 
             {/* Search bar */}
             <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -268,10 +397,15 @@ function MainApp() {
         <Text style={styles.fabText}>Add Task</Text>
       </TouchableOpacity>
 
-      {/* Add / Edit modal — keyboard pushes sheet up */}
-      <Modal visible={modalMode !== null} transparent animationType="slide" onRequestClose={closeModal}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <TouchableOpacity style={{ flex: 1, backgroundColor: '#00000088' }} activeOpacity={1} onPress={closeModal} />
+      {/* Add / Edit modal — backdrop is absolute so keyboard resize never affects it */}
+      <Modal visible={modalMode !== null} transparent animationType="slide" hardwareAccelerated onRequestClose={closeModal}>
+        {/* Backdrop sits outside KeyboardAvoidingView — it never resizes with the keyboard */}
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeModal} />
+        <KeyboardAvoidingView
+          style={styles.modalKAV}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          pointerEvents="box-none"
+        >
           <View style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={[styles.handle, { backgroundColor: theme.cardBorder }]} />
             <Text style={[styles.modalTitle, { color: theme.text }]}>
@@ -286,11 +420,11 @@ function MainApp() {
               onClose={closeModal}
             />
 
-            {/* Saving overlay — plain View so it shares the Modal's lifecycle (no nested Modal!) */}
+            {/* Saving overlay with smooth spinner */}
             {isSaving && (
               <View style={styles.savingOverlay}>
                 <View style={[styles.savingCard, { backgroundColor: theme.card }]}>
-                  <ActivityIndicator size="large" color={GREEN} />
+                  <SmoothSpinner />
                   <Text style={[styles.savingText, { color: theme.textMuted }]}>Saving…</Text>
                 </View>
               </View>
@@ -337,16 +471,10 @@ export default function App() {
 // ─── Styles ────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1 },
+  safe:    { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0 },
   list:    { flex: 1 },
   content: { padding: 20, paddingBottom: 120 },
 
-  header:    { marginBottom: 16, marginTop: 8 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  title:     { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  subtitle:  { fontSize: 13, marginTop: 3, fontWeight: '300', letterSpacing: 0.5 },
-
-  settingsBtn: { padding: 10, borderRadius: 12, borderWidth: 1 },
 
   overdueBar:  { marginTop: 10, backgroundColor: '#E5484D18', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#E5484D44' },
   overdueText: { color: '#E5484D', fontSize: 13, fontWeight: '600' },
@@ -387,6 +515,16 @@ const styles = StyleSheet.create({
   fabIcon: { color: '#fff', fontSize: 22, fontWeight: '300', lineHeight: 24 },
   fabText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 
+  // Backdrop: absolute fill so it is never resized by the keyboard
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#00000088',
+  },
+  // KAV only wraps the sheet — justifyContent pushes it to the bottom
+  modalKAV: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   modalSheet: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1,
     padding: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24,

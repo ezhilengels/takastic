@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
@@ -11,7 +11,7 @@ const FILTERS = [
   { key: 'completed',   label: 'Completed' },
 ];
 
-export default function FilterBar({ filter, onFilter }) {
+function FilterBar({ filter, onFilter }) {
   const { theme } = useTheme();
   return (
     <ScrollView
@@ -59,3 +59,5 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 13, fontWeight: '600' },
 });
+
+export default memo(FilterBar);

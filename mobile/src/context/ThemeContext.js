@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const THEME_KEY = '@taskastic/theme_v1';
 
 // ── Brand palette ──────────────────────────────────────────────────────────
 export const GREEN = '#00875A';   // primary  – completed / active / brand
@@ -20,6 +23,7 @@ export const lightTheme = {
   secondaryBg:     '#D6DAE4',
   secondaryBorder: '#6B778C',
   secondaryText:   '#172B4D',
+  checkboxBorder:  '#ADB5C7',
 };
 
 // ── Dark theme ─────────────────────────────────────────────────────────────
@@ -27,7 +31,7 @@ export const darkTheme = {
   mode:        'dark',
   bg:          '#0c1410',
   card:        '#111f17',
-  cardBorder:  '#1e3328',
+  cardBorder:  '#00875A55',
   inputBg:     '#162019',
   text:        '#E3F5ED',
   textMuted:   '#6B8C7A',
@@ -38,17 +42,38 @@ export const darkTheme = {
   secondaryBg:     '#2C4A38',
   secondaryBorder: '#7EC8A0',
   secondaryText:   '#E8F5EE',
+  checkboxBorder:  '#FFFFFF',
 };
 
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(false); // light by default (bg: #FFFFFF)
+  const [isDark, setIsDark] = useState(false); // light by default; AsyncStorage overrides on mount
+
+  // Load persisted preference on mount
+  useEffect(() => {
+    AsyncStorage.getItem(THEME_KEY).then((val) => {
+      if (val === 'dark')  setIsDark(true);
+      if (val === 'light') setIsDark(false);
+    }).catch(() => {});
+  }, []);
+
+  // useCallback with [] so this function reference is stable across renders
+  const toggleTheme = useCallback(() => {
+    setIsDark((d) => {
+      const next = !d;
+      AsyncStorage.setItem(THEME_KEY, next ? 'dark' : 'light').catch(() => {});
+      return next;
+    });
+  }, []);
+
   const theme = isDark ? darkTheme : lightTheme;
-  const toggleTheme = () => setIsDark((d) => !d);
+
+  // All three deps are stable: theme changes only with isDark, toggleTheme is stable
+  const value = useMemo(() => ({ theme, toggleTheme, isDark }), [theme, toggleTheme, isDark]);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

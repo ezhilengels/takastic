@@ -209,17 +209,24 @@ export function useTodos() {
   }, []);
 
   // ── Realtime subscription ─────────────────────────────────────────────────
+  // Filter by user_id so we only react to the current user's own changes,
+  // not every other user's writes to the same table.
 
   useEffect(() => {
-    const channel = supabase
-      .channel('todos-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'todos' },
-        fetchTodos,
-      )
-      .subscribe();
-    return () => supabase.removeChannel(channel);
+    let channel;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      channel = supabase
+        .channel('todos-realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${user.id}` },
+          fetchTodos,
+        )
+        .subscribe();
+    })();
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, [fetchTodos]);
 
   // ── AppState: replay queue when app comes to foreground ───────────────────

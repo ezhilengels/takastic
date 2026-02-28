@@ -47,7 +47,7 @@ function PickerModal({ visible, title, options, selected, onSelect, onClose, the
               <View style={[
                 styles.radioOuter,
                 {
-                  borderColor: isSelected ? color : theme.textMuted,
+                  borderColor: isSelected ? color : theme.cardBorder,
                   borderWidth: isSelected ? 2 : 1.5,
                   backgroundColor: isSelected ? color + '20' : 'transparent',
                 },

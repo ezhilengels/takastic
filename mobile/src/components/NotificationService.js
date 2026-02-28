@@ -23,9 +23,10 @@ try {
 if (Notifications) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
+      shouldShowBanner: true,   // replaces deprecated shouldShowAlert
+      shouldShowList:   true,   // show in notification centre
+      shouldPlaySound:  true,
+      shouldSetBadge:   true,
     }),
   });
 
