@@ -1,70 +1,33 @@
-# Taskflow – Todo App
+# Taskastic Repository
 
-A full-stack Todo app built with React + Vite (frontend) and Node.js + Express (backend).
-Data is stored in a local `todos.json` file on disk — no database required.
+This repository contains multiple app slices. The active product is the Expo/React Native mobile app.
 
-## Project Structure
+## Primary Documentation
 
-```
-todo-app/
-├── client/          # React + Vite frontend
-│   ├── src/
-│   │   ├── components/
-│   │   ├── hooks/useTodos.js
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── index.html
-│   └── package.json
-├── server/
-│   ├── index.js     # Express API
-│   ├── todos.json   # Auto-created on first run
-│   └── package.json
-└── README.md
-```
+- Mobile app full documentation: [`mobile/README.md`](./mobile/README.md)
 
-## Setup & Run
+## Repository Overview
 
-### 1. Start the Backend
+- `mobile/` - Active Taskastic mobile app (Expo + React Native)
+- `cloudflare-worker.js` - Cloudflare Worker proxy to Supabase
+- `migrations/` - SQL schema/migration files
+- `client/` - Older web client (legacy)
+- `server/` - Older Node/Express server (legacy)
+
+## Quick Start (Mobile)
 
 ```bash
-cd server
+cd mobile
 npm install
-npm run dev       # uses nodemon for auto-reload
-# OR
-npm start         # production start
+npm start
 ```
 
-Server runs at: http://localhost:5000
-
-### 2. Start the Frontend
+Run Android locally:
 
 ```bash
-cd client
-npm install
-npm run dev
+npm run android
 ```
 
-Frontend runs at: http://localhost:3000
+For architecture, auth flow, offline sync, release process, and troubleshooting, use:
+- [`mobile/README.md`](./mobile/README.md)
 
-## API Endpoints
-
-| Method | Endpoint                      | Description           |
-|--------|-------------------------------|-----------------------|
-| GET    | /api/todos                    | Get all todos         |
-| POST   | /api/todos                    | Create a new todo     |
-| PUT    | /api/todos/:id                | Update todo text/priority |
-| PATCH  | /api/todos/:id/toggle         | Toggle complete       |
-| DELETE | /api/todos/:id                | Delete a todo         |
-| DELETE | /api/todos/completed/clear    | Clear all completed   |
-
-## Features
-
-- Add todos with priority (High / Medium / Low)
-- Toggle complete / incomplete
-- Inline edit (double-click todo text)
-- Delete individual todos
-- Filter by All / Active / Completed
-- Clear all completed at once
-- Data persisted to `server/todos.json`
-# takastic

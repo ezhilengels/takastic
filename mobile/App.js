@@ -5,6 +5,7 @@ import {
   StyleSheet, StatusBar, Switch, TextInput, Animated, Easing,
   LayoutAnimation, UIManager, Dimensions, BackHandler, Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { requestNotificationPermissions } from './src/components/NotificationService';
@@ -84,7 +85,7 @@ function HeaderBanner({ activeCount, completedCount, overdueCount, onSettings, s
         <View style={bannerStyles.pillsRow}>
           <View style={bannerStyles.pill}>
             <Text style={bannerStyles.pillNum}>{activeCount}</Text>
-            <Text style={bannerStyles.pillLabel}>Active</Text>
+            <Text style={bannerStyles.pillLabel}>Pending</Text>
           </View>
           <View style={bannerStyles.pill}>
             <Text style={bannerStyles.pillNum}>{completedCount}</Text>
@@ -95,10 +96,15 @@ function HeaderBanner({ activeCount, completedCount, overdueCount, onSettings, s
               <Text style={[bannerStyles.pillNum, { color: '#FFD6D6' }]}>{overdueCount}</Text>
               <Text style={[bannerStyles.pillLabel, { color: '#FFD6D6' }]}>Overdue</Text>
             </View>
-          ) : (
+          ) : (activeCount + completedCount > 0) ? (
             <View style={[bannerStyles.pill, bannerStyles.allDonePill]}>
               <Text style={[bannerStyles.pillNum, { color: '#C8FFE8' }]}>✓</Text>
               <Text style={[bannerStyles.pillLabel, { color: '#C8FFE8' }]}>On track</Text>
+            </View>
+          ) : (
+            <View style={[bannerStyles.pill, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }]}>
+              <Text style={[bannerStyles.pillNum, { color: 'rgba(255,255,255,0.55)' }]}>—</Text>
+              <Text style={[bannerStyles.pillLabel, { color: 'rgba(255,255,255,0.55)' }]}>No tasks</Text>
             </View>
           )}
         </View>
@@ -172,11 +178,12 @@ const bannerStyles = StyleSheet.create({
 function SettingsModal({ visible, onClose }) {
   const { theme, toggleTheme, isDark } = useTheme();
   const { signOut } = useAuth();
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} transparent animationType="fade" hardwareAccelerated onRequestClose={onClose}>
       <TouchableOpacity style={styles.settingsBackdrop} activeOpacity={1} onPress={onClose} />
-      <View style={[styles.settingsSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.settingsSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingBottom: insets.bottom + 20 }]}>
         <View style={[styles.handle, { backgroundColor: theme.cardBorder }]} />
         <Text style={[styles.settingsTitle, { color: theme.text }]}>Settings</Text>
 
@@ -229,10 +236,12 @@ function SettingsModal({ visible, onClose }) {
 function MainApp() {
   const { theme } = useTheme();
   const { session } = useAuth();
+  const insets = useSafeAreaInsets();
   const [filter, setFilter]             = useState('all');
   const [search, setSearch]             = useState('');
   const [modalMode, setModalMode]       = useState(null); // null | 'add' | 'edit'
   const [editingTodo, setEditingTodo]   = useState(null);
+  const [addFormInstance, setAddFormInstance] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [isSaving, setIsSaving]         = useState(false);
   const [showPills, setShowPills] = useState(true);
@@ -319,7 +328,11 @@ function MainApp() {
     return () => sub.remove();
   }, [modalMode]);
 
-  const openAdd  = () => { setEditingTodo(null); setModalMode('add'); };
+  const openAdd  = () => {
+    setEditingTodo(null);
+    setAddFormInstance((n) => n + 1);
+    setModalMode('add');
+  };
   const openEdit = (todo) => { setEditingTodo(todo); setModalMode('edit'); };
   const closeModal = () => {
     Keyboard.dismiss();
@@ -419,9 +432,11 @@ function MainApp() {
 
         {/* Stats row */}
         <View style={styles.stats}>
-          <Text style={[styles.statsText, { color: theme.textMuted }]}>
-            {activeCount} task{activeCount !== 1 ? 's' : ''} left
-          </Text>
+          {(activeCount + completedCount > 0) && (
+            <Text style={[styles.statsText, { color: theme.textMuted }]}>
+              {activeCount} task{activeCount !== 1 ? 's' : ''} left
+            </Text>
+          )}
           {completedCount > 0 && (
             <TouchableOpacity onPress={clearCompleted}>
               <Text style={[styles.clearBtn, { color: GREEN }]}>
@@ -476,11 +491,13 @@ function MainApp() {
         )}
       />
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={openAdd} activeOpacity={0.85}>
-        <Text style={styles.fabIcon}>+</Text>
-        <Text style={styles.fabText}>Add Task</Text>
-      </TouchableOpacity>
+      {/* Fixed footer */}
+      <View style={[styles.footer, { backgroundColor: 'transparent', borderTopColor: 'transparent', paddingBottom: insets.bottom + 8 }]}>
+        <TouchableOpacity style={styles.footerBtn} onPress={openAdd} activeOpacity={0.85}>
+          <Text style={styles.fabIcon}>+</Text>
+          <Text style={styles.fabText}>Add Task</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Backdrop — fades in with the sheet, non-interactive when hidden */}
       <Animated.View
@@ -496,13 +513,13 @@ function MainApp() {
         pointerEvents={modalMode !== null ? 'box-none' : 'none'}
       >
         <View style={styles.modalKAV}>
-          <View style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingBottom: insets.bottom + 20 }]}>
             <View style={[styles.handle, { backgroundColor: theme.cardBorder }]} />
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               {isEdit ? 'Edit Task' : 'New Task'}
             </Text>
             <AddTodoForm
-              key={editingTodo?.id || 'new'}
+              key={isEdit ? `edit-${editingTodo?.id}` : `new-${addFormInstance}`}
               initialValues={isEdit ? editingTodo : null}
               submitLabel={isEdit ? 'Save Changes' : 'Add Task'}
               isEditMode={isEdit}
@@ -551,11 +568,13 @@ function RootNavigator() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 
@@ -565,7 +584,7 @@ const styles = StyleSheet.create({
   safe:        { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0 },
   fixedHeader: { paddingHorizontal: 20, paddingTop: 20 },
   list:        { flex: 1 },
-  taskContent: { paddingHorizontal: 20, paddingBottom: 120 },
+  taskContent: { paddingHorizontal: 20, paddingBottom: 24 },
 
 
   overdueBar:  { marginTop: 10, backgroundColor: '#E5484D18', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#E5484D44' },
@@ -597,12 +616,18 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 40, opacity: 0.3 },
   mutedText: { fontSize: 14 },
 
-  fab: {
-    position: 'absolute', bottom: 28, alignSelf: 'center',
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: GREEN, paddingVertical: 14, paddingHorizontal: 28,
-    borderRadius: 50, shadowColor: GREEN,
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8,
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderTopWidth: 0,
+  },
+  footerBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: GREEN, paddingTop: 14, paddingBottom: 11,
+    borderRadius: 14,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
   },
   fabIcon: { color: '#fff', fontSize: 22, fontWeight: '300', lineHeight: 24 },
   fabText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
@@ -625,7 +650,7 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1,
-    padding: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    padding: 20,
     overflow: 'hidden',   // clips savingOverlay to rounded corners
   },
 
@@ -664,7 +689,7 @@ const styles = StyleSheet.create({
   settingsSheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1,
-    padding: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24, gap: 4,
+    padding: 20, gap: 4,
   },
   settingsTitle:    { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   settingsRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1 },

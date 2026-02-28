@@ -3,6 +3,7 @@ import {
   View, TextInput, TouchableOpacity, Text, StyleSheet,
   Modal, ScrollView, ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatePickerModal from './DatePickerModal';
 import { useTheme } from '../context/ThemeContext';
 import { PRIORITY_OPTIONS, STATUS_OPTIONS } from '../constants/twoTone';
@@ -21,10 +22,11 @@ function getOption(options, value) {
 
 // ─── Radio-style picker modal ────────────────────────────────────────────────
 function PickerModal({ visible, title, options, selected, onSelect, onClose, theme }) {
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={onClose} />
-      <View style={[styles.pickerSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.pickerSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingBottom: insets.bottom + 20 }]}>
         <Text style={[styles.pickerSheetTitle, { color: theme.text }]}>{title}</Text>
         {options.map((opt) => {
           const isSelected = selected === opt.value;
@@ -312,7 +314,7 @@ const styles = StyleSheet.create({
   pickerBackdrop: { flex: 1, backgroundColor: '#00000088' },
   pickerSheet: {
     borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: 1,
-    padding: 20, paddingBottom: 36, gap: 10,
+    padding: 20, gap: 10,
   },
   pickerSheetTitle: {
     fontSize: 13, fontWeight: '800', textTransform: 'uppercase',

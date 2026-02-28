@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Taskastic Mobile App Documentation</title>
+  <style>
+    :root { --bg:#f7f9fb; --card:#fff; --text:#172b4d; --muted:#5e6c84; --brand:#00875A; --border:#dfe1e6; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+    .wrap { max-width: 980px; margin: 32px auto; padding: 0 20px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:28px; box-shadow:0 4px 20px rgba(9,30,66,.06); }
+    h1,h2,h3,h4 { line-height:1.25; margin: 1.2em 0 .45em; }
+    h1 { color: var(--brand); margin-top: 0; font-size: 2rem; }
+    h2 { font-size: 1.4rem; border-top:1px solid var(--border); padding-top: 14px; }
+    h3 { font-size: 1.12rem; color: #0b6b48; }
+    p, ul, ol, pre { margin: .65em 0; }
+    ul, ol { padding-left: 1.4em; }
+    li { margin: .25em 0; }
+    code { background:#f1f5f9; border:1px solid var(--border); border-radius:6px; padding:.1em .38em; font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em; }
+    pre { background:#0f172a; color:#e2e8f0; border-radius:10px; padding:14px; overflow:auto; }
+    pre code { background:none; border:none; color:inherit; padding:0; }
+    a { color:#0b63ce; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .foot { color:var(--muted); font-size:.9rem; margin-top:16px; }
+    @media print { body { background:#fff; } .wrap { max-width:100%; margin:0; padding:0; } .card { border:none; box-shadow:none; border-radius:0; padding:0; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <article class="card">
+      <h1>Taskastic Mobile App Documentation</h1>
+<p>
+This document explains how Taskastic mobile is built, how data flows through the app, and how to run, build, release, and troubleshoot it.
+</p>
+<h2>1. What This App Is</h2>
+<p>
+Taskastic is an Expo + React Native task manager with:
+</p>
+<ul>
+<li>Email/password auth via Supabase</li>
+<li>Google Sign-In via native Android Google auth + Supabase token exchange</li>
+<li>Offline-first task operations (local cache + queued sync)</li>
+<li>Task reminders via local notifications (<code>expo-notifications</code>)</li>
+<li>Android Play Store release support (AAB signing configured)</li>
+</ul>
+<p>
+Primary app package:
+</p>
+<ul>
+<li>Android package: <code>com.taskastic.app</code></li>
+<li>iOS bundle: <code>com.taskastic.app</code></li>
+</ul>
+<h2>2. Tech Stack</h2>
+<ul>
+<li>Expo SDK 54</li>
+<li>React Native 0.81</li>
+<li>React 19</li>
+<li>Supabase JS v2</li>
+<li><code>@react-native-google-signin/google-signin</code></li>
+<li><code>@react-native-async-storage/async-storage</code></li>
+<li><code>expo-notifications</code></li>
+<li>Cloudflare Worker proxy in front of Supabase API</li>
+</ul>
+<h2>3. Repository Layout</h2>
+<p>
+Top-level repo includes multiple older pieces (<code>client/</code>, <code>server/</code>) and the active mobile app:
+</p>
+<ul>
+<li><code>mobile/</code> - active React Native app (main product)</li>
+<li><code>cloudflare-worker.js</code> - Supabase proxy worker used by mobile</li>
+<li><code>migrations/</code> - SQL schema history</li>
+</ul>
+<p>
+Inside <code>mobile/</code>:
+</p>
+<ul>
+<li><code>App.js</code> - root app UI + modal workflow + list rendering</li>
+<li><code>src/context/AuthContext.js</code> - auth state + sign-in/sign-up/Google sign-in</li>
+<li><code>src/context/ThemeContext.js</code> - light/dark theme + persistence</li>
+<li><code>src/hooks/useTodos.js</code> - todo CRUD + offline queue + cache + replay + realtime sync</li>
+<li><code>src/lib/supabase.js</code> - Supabase client configured to use proxy URL</li>
+<li><code>src/components/</code> - UI and behavior components (form, item card, filter, date picker, notifications)</li>
+<li><code>android/</code> - generated native Android project (for local release builds)</li>
+</ul>
+<h2>4. High-Level Architecture</h2>
+<h3>4.1 Runtime flow</h3>
+<ol>
+<li>App boots in <code>index.js</code> and mounts <code>App.js</code>.</li>
+<li><code>ThemeProvider</code> and <code>AuthProvider</code> wrap the app.</li>
+<li><code>AuthProvider</code> resolves Supabase session.</li>
+<li>If no session -&gt; <code>AuthScreen</code>; if session -&gt; <code>MainApp</code>.</li>
+<li><code>MainApp</code> uses <code>useTodos()</code> hook for task state + sync behavior.</li>
+</ol>
+<h3>4.2 Data path</h3>
+<p>
+App -&gt; Cloudflare Worker Proxy -&gt; Supabase REST/Auth endpoints -&gt; Postgres table <code>todos</code>
+</p>
+<p>
+Proxy purpose: avoids direct Supabase DNS/network issues in some regions and standardizes CORS behavior.
+</p>
+<h2>5. Authentication Design</h2>
+<h2>5.1 Email/password</h2>
+<p>
+<code>AuthContext</code> calls:
+</p>
+<ul>
+<li><code>supabase.auth.signInWithPassword()</code></li>
+<li><code>supabase.auth.signUp()</code></li>
+<li><code>supabase.auth.signOut()</code></li>
+</ul>
+<p>
+Session persistence uses AsyncStorage through Supabase client config.
+</p>
+<h2>5.2 Google Sign-In</h2>
+<ol>
+<li>Native sign-in via <code>GoogleSignin.signIn()</code>.</li>
+<li>Obtain ID token.</li>
+<li>Exchange token with <code>supabase.auth.signInWithIdToken({ provider: 'google', token })</code>.</li>
+<li>Supabase returns user session.</li>
+</ol>
+<p>
+Critical requirement: Google Cloud OAuth Android clients must match package + signing SHA certificates for each signing context.
+</p>
+<h2>6. Todo Domain Model</h2>
+<p>
+<code>todos</code> table fields used by app:
+</p>
+<ul>
+<li><code>id</code> (uuid/text)</li>
+<li><code>user_id</code></li>
+<li><code>text</code></li>
+<li><code>priority</code>: <code>high | medium | low</code></li>
+<li><code>status</code>: <code>not-started | active | completed</code></li>
+<li><code>completed</code> (boolean style)</li>
+<li><code>due_date</code> (ISO string or null)</li>
+<li><code>created_at</code></li>
+</ul>
+<p>
+Completion logic intentionally supports either field:
+</p>
+<ul>
+<li>A task is treated as done if <code>completed === true</code> OR <code>status === 'completed'</code>.</li>
+</ul>
+<h2>7. Offline-First Behavior</h2>
+<p>
+Implemented in <code>src/hooks/useTodos.js</code>.
+</p>
+<h3>7.1 Local persistence keys</h3>
+<ul>
+<li><code>@taskastic/todos_v1</code> - cached task list</li>
+<li><code>@taskastic/queue_v1</code> - queued operations while offline</li>
+</ul>
+<h3>7.2 Optimistic writes</h3>
+<p>
+On add/update/delete/toggle/clear:
+</p>
+<ul>
+<li>UI updates immediately</li>
+<li>cache updates immediately</li>
+<li>network request attempted</li>
+<li>on network failure, operation is queued</li>
+</ul>
+<h3>7.3 Queue replay</h3>
+<p>
+Replay triggers:
+</p>
+<ul>
+<li>app startup</li>
+<li>app returns to foreground</li>
+<li>periodic retry every 30 seconds when queue non-empty</li>
+</ul>
+<p>
+When replay succeeds, hook refetches from server for reconciliation.
+</p>
+<h2>8. Notifications</h2>
+<p>
+Local reminders are managed by <code>src/components/NotificationService.js</code>.
+</p>
+<p>
+Behavior:
+</p>
+<ul>
+<li>Notification scheduled at due time (exact date trigger)</li>
+<li>Existing notification for a task is cancelled before reschedule</li>
+<li>Completed tasks cancel reminders</li>
+<li>Past due dates are not scheduled</li>
+<li>Android channel: <code>task-reminders</code></li>
+</ul>
+<h2>9. UI and UX Structure</h2>
+<ul>
+<li>Auth screen: Google + email/password entry</li>
+<li>Main screen:</li>
+</ul>
+<p>
+- Banner with stats and greeting
+<br>- Search bar
+<br>- Filter chips (<code>all</code>, <code>not-started</code>, <code>active</code>, <code>completed</code>)
+<br>- Task list cards with priority/status badges
+<br>- Add/Edit bottom sheet form
+</p>
+<ul>
+<li>Date/time picker modal for due date</li>
+<li>Settings modal with theme toggle + sign out</li>
+</ul>
+<h2>10. Configuration and Environments</h2>
+<p>
+<code>src/lib/supabase.js</code> contains:
+</p>
+<ul>
+<li>proxy URL (<code>SUPABASE_URL</code>)</li>
+<li>public anon key (<code>SUPABASE_ANON_KEY</code>)</li>
+</ul>
+<p>
+<code>app.json</code> contains app metadata and bundle/package IDs.
+</p>
+<p>
+<code>eas.json</code> contains EAS build profiles for development/preview/production.
+</p>
+<h2>11. Running Locally</h2>
+<p>
+Prerequisites:
+</p>
+<ul>
+<li>Node.js + npm</li>
+<li>Android Studio + Android SDK</li>
+<li>Java/JDK for Android builds</li>
+</ul>
+<p>
+Install dependencies:
+</p>
+<pre><code>
+cd mobile
+npm install
+</code></pre>
+<p>
+Start Expo dev server:
+</p>
+<pre><code>
+npm start
+</code></pre>
+<p>
+Run on Android device/emulator:
+</p>
+<pre><code>
+npm run android
+</code></pre>
+<p>
+Note: if Play/release build is installed on device, debug APK install may fail with signature mismatch (<code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code>). Uninstall app first.
+</p>
+<h2>12. Android Local Release Build (AAB)</h2>
+<p>
+Taskastic is configured for local Gradle release signing.
+</p>
+<p>
+Build AAB:
+</p>
+<pre><code>
+cd mobile/android
+./gradlew clean bundleRelease
+</code></pre>
+<p>
+Output:
+</p>
+<ul>
+<li><code>mobile/android/app/build/outputs/bundle/release/app-release.aab</code></li>
+</ul>
+<p>
+Current version source:
+</p>
+<ul>
+<li><code>mobile/android/app/build.gradle</code> -&gt; <code>versionCode</code></li>
+<li><code>mobile/app.json</code> -&gt; <code>expo.android.versionCode</code></li>
+</ul>
+<p>
+Before every Play upload, increment version code.
+</p>
+<h2>13. Play Store Upload Checklist</h2>
+<ol>
+<li>Build AAB with release key.</li>
+<li>Upload to Internal testing first.</li>
+<li>Ensure only latest version code artifact is in draft release.</li>
+<li>Complete app content declarations and store listing.</li>
+</ol>
+<p>
+Common Play errors:
+</p>
+<ul>
+<li>Wrong signing key -&gt; use correct upload keystore or reset upload key</li>
+<li>Version code already used -&gt; increment version code</li>
+<li>Shadowed APK/AAB in draft -&gt; remove older artifact from same release draft</li>
+</ul>
+<h2>14. Google Sign-In Setup Checklist (Android)</h2>
+<p>
+Google Cloud project must include:
+</p>
+<ul>
+<li>1 Web OAuth client (used as <code>webClientId</code> in app)</li>
+<li>Android OAuth clients for <code>com.taskastic.app</code> with each SHA-1:</li>
+</ul>
+<p>
+- Debug keystore SHA-1 (local debug installs)
+<br>- Upload key SHA-1 (local release signing uploads)
+<br>- Play App Signing key SHA-1 (Play-delivered app installs)
+</p>
+<p>
+If OAuth consent is in testing mode, add tester Gmail to test users.
+</p>
+<h3>Typical <code>DEVELOPER_ERROR</code> causes</h3>
+<ul>
+<li>Package mismatch</li>
+<li>Wrong/missing SHA-1 in Android OAuth client</li>
+<li>Missing Play signing SHA client when app installed from Play</li>
+<li>Wrong <code>webClientId</code> project pairing</li>
+</ul>
+<h2>15. Cloudflare Worker Proxy</h2>
+<p>
+File: <code>/cloudflare-worker.js</code>
+</p>
+<p>
+Purpose:
+</p>
+<ul>
+<li>Forward all auth/rest calls to real Supabase project</li>
+<li>Add permissive CORS headers</li>
+<li>Keep mobile client pointed at proxy endpoint</li>
+</ul>
+<p>
+Deploy target name in <code>wrangler.toml</code>:
+</p>
+<ul>
+<li><code>taskastic-proxy</code></li>
+</ul>
+<h2>16. Known Security Improvements (Recommended)</h2>
+<p>
+Current project has sensitive values in tracked files (for example, signing credentials in <code>android/gradle.properties</code>).
+</p>
+<p>
+Recommended hardening:
+</p>
+<ul>
+<li>Move keystore passwords to local-only <code>~/.gradle/gradle.properties</code> or CI secrets</li>
+<li>Remove hardcoded secrets from repository history if public</li>
+<li>Keep only public Supabase anon key in client; never include service role keys</li>
+</ul>
+<h2>17. Main Troubleshooting Guide</h2>
+<h3>17.1 Google login fails with <code>DEVELOPER_ERROR</code></h3>
+<ul>
+<li>Verify <code>com.taskastic.app</code></li>
+<li>Verify Android OAuth SHA-1 entries (debug + upload + play signing)</li>
+<li>Verify same Google project is used for Web client and Android clients</li>
+<li>Uninstall/reinstall app after OAuth changes</li>
+<li>Wait 5-15 minutes for propagation</li>
+</ul>
+<h3>17.2 Gradle build fails with <code>OutOfMemoryError: Metaspace</code></h3>
+<p>
+Project already includes tuned values in <code>android/gradle.properties</code>:
+</p>
+<ul>
+<li>increased <code>org.gradle.jvmargs</code></li>
+<li><code>org.gradle.parallel=false</code></li>
+<li><code>org.gradle.workers.max=2</code></li>
+</ul>
+<p>
+If needed, run with fresh daemon:
+</p>
+<pre><code>
+cd mobile/android
+./gradlew --stop
+./gradlew clean bundleRelease --no-daemon
+</code></pre>
+<h3>17.3 Debug install fails with signature mismatch</h3>
+<p>
+Error: <code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code>
+</p>
+<p>
+Fix:
+</p>
+<ul>
+<li>uninstall existing <code>com.taskastic.app</code> from device</li>
+<li>reinstall debug build</li>
+</ul>
+<h2>18. Maintenance Notes</h2>
+<p>
+When changing data/auth behavior, update these files first:
+</p>
+<ul>
+<li>this documentation (<code>mobile/README.md</code>)</li>
+<li>OAuth setup records (Google Cloud + Play App Integrity)</li>
+<li>release version code in both <code>app.json</code> and <code>android/app/build.gradle</code></li>
+</ul>
+      <p class="foot">Generated from <code>mobile/README.md</code>.</p>
+    </article>
+  </div>
+</body>
+</html>

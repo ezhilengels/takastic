@@ -2,7 +2,7 @@
   "expo": {
     "name": "Taskastic",
     "slug": "taskastic",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -31,7 +31,7 @@
         "backgroundColor": "#0c0c10"
       },
       "package": "com.taskastic.app",
-      "versionCode": 7,
+      "versionCode": 10,
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
