@@ -31,7 +31,7 @@ export const darkTheme = {
   mode:        'dark',
   bg:          '#0c1410',
   card:        '#111f17',
-  cardBorder:  '#00875A55',
+  cardBorder:  '#b3dcc6ff',
   inputBg:     '#162019',
   text:        '#E3F5ED',
   textMuted:   '#6B8C7A',
@@ -42,7 +42,7 @@ export const darkTheme = {
   secondaryBg:     '#2C4A38',
   secondaryBorder: '#7EC8A0',
   secondaryText:   '#E8F5EE',
-  checkboxBorder:  '#FFFFFF',
+  checkboxBorder:  '#b3dcc6ff',
 };
 
 const ThemeContext = createContext(null);

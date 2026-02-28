@@ -72,7 +72,7 @@ function PickerModal({ visible, title, options, selected, onSelect, onClose, the
 
 // ─── Main form ───────────────────────────────────────────────────────────────
 export default function AddTodoForm({
-  onSubmit, onClose, initialValues, submitLabel = 'Add Task', isEditMode = false,
+  onSubmit, onClose, initialValues, submitLabel = 'Add Task', isEditMode = false, autoFocus = false,
 }) {
   const { theme } = useTheme();
 
@@ -155,7 +155,7 @@ export default function AddTodoForm({
           placeholder="What needs to be done?"
           placeholderTextColor={theme.textMuted}
           returnKeyType="done"
-          autoFocus
+          autoFocus={autoFocus}
           editable={!isSubmitting}
         />
         {!!textError && <Text style={styles.fieldError}>⚠️ {textError}</Text>}

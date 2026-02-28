@@ -3,6 +3,7 @@ import {
   SafeAreaView, View, Text, FlatList, TouchableOpacity,
   ActivityIndicator, Modal, KeyboardAvoidingView, Platform,
   StyleSheet, StatusBar, Switch, TextInput, Animated, Easing,
+  LayoutAnimation, UIManager, Dimensions, BackHandler, Keyboard,
 } from 'react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -14,6 +15,11 @@ import TodoItem from './src/components/TodoItem';
 import FilterBar from './src/components/FilterBar';
 
 const GREEN = '#00875A';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // ─── Smooth spinner ────────────────────────────────────────────────────────
 
@@ -39,7 +45,7 @@ function SmoothSpinner() {
 
 // ─── Header banner ─────────────────────────────────────────────────────────
 
-function HeaderBanner({ activeCount, completedCount, overdueCount, onSettings, session }) {
+function HeaderBanner({ activeCount, completedCount, overdueCount, onSettings, session, showPills }) {
   const { theme } = useTheme();
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -66,35 +72,37 @@ function HeaderBanner({ activeCount, completedCount, overdueCount, onSettings, s
           <Text style={bannerStyles.appName}>◈ Taskastic</Text>
         </View>
         <TouchableOpacity
-          style={[bannerStyles.settingsBtn, { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.3)' }]}
+          style={[bannerStyles.settingsBtn, { backgroundColor: '#ffffff', borderColor: '#ffffff' }]}
           onPress={onSettings}
         >
           <Text style={{ fontSize: 18 }}>⚙️</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Stats pills */}
-      <View style={bannerStyles.pillsRow}>
-        <View style={bannerStyles.pill}>
-          <Text style={bannerStyles.pillNum}>{activeCount}</Text>
-          <Text style={bannerStyles.pillLabel}>Active</Text>
-        </View>
-        <View style={bannerStyles.pill}>
-          <Text style={bannerStyles.pillNum}>{completedCount}</Text>
-          <Text style={bannerStyles.pillLabel}>Done</Text>
-        </View>
-        {overdueCount > 0 ? (
-          <View style={[bannerStyles.pill, bannerStyles.overduePill]}>
-            <Text style={[bannerStyles.pillNum, { color: '#FFD6D6' }]}>{overdueCount}</Text>
-            <Text style={[bannerStyles.pillLabel, { color: '#FFD6D6' }]}>Overdue</Text>
+      {/* Stats pills — hidden when user scrolls down */}
+      {showPills && (
+        <View style={bannerStyles.pillsRow}>
+          <View style={bannerStyles.pill}>
+            <Text style={bannerStyles.pillNum}>{activeCount}</Text>
+            <Text style={bannerStyles.pillLabel}>Active</Text>
           </View>
-        ) : (
-          <View style={[bannerStyles.pill, bannerStyles.allDonePill]}>
-            <Text style={[bannerStyles.pillNum, { color: '#C8FFE8' }]}>✓</Text>
-            <Text style={[bannerStyles.pillLabel, { color: '#C8FFE8' }]}>On track</Text>
+          <View style={bannerStyles.pill}>
+            <Text style={bannerStyles.pillNum}>{completedCount}</Text>
+            <Text style={bannerStyles.pillLabel}>Done</Text>
           </View>
-        )}
-      </View>
+          {overdueCount > 0 ? (
+            <View style={[bannerStyles.pill, bannerStyles.overduePill]}>
+              <Text style={[bannerStyles.pillNum, { color: '#FFD6D6' }]}>{overdueCount}</Text>
+              <Text style={[bannerStyles.pillLabel, { color: '#FFD6D6' }]}>Overdue</Text>
+            </View>
+          ) : (
+            <View style={[bannerStyles.pill, bannerStyles.allDonePill]}>
+              <Text style={[bannerStyles.pillNum, { color: '#C8FFE8' }]}>✓</Text>
+              <Text style={[bannerStyles.pillLabel, { color: '#C8FFE8' }]}>On track</Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -227,6 +235,8 @@ function MainApp() {
   const [editingTodo, setEditingTodo]   = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [isSaving, setIsSaving]         = useState(false);
+  const [showPills, setShowPills] = useState(true);
+  const pillsShown = useRef(true);
 
   const {
     todos, loading, error,
@@ -257,9 +267,73 @@ function MainApp() {
   // Overdue = incomplete tasks whose due date has ACTUALLY passed
   const overdueCount   = todos.filter((t) => t.due_date && !isTaskDone(t) && new Date(t.due_date) < now).length;
 
-  const openAdd    = () => { setEditingTodo(null); setModalMode('add'); };
-  const openEdit   = (todo) => { setEditingTodo(todo); setModalMode('edit'); };
-  const closeModal = () => { setModalMode(null); setEditingTodo(null); };
+  const SHEET_OFFSET  = Dimensions.get('window').height;
+  const slideAnim     = useRef(new Animated.Value(SHEET_OFFSET)).current;
+  const keyboardAnim  = useRef(new Animated.Value(0)).current;
+
+  const backdropOpacity = slideAnim.interpolate({
+    inputRange: [0, SHEET_OFFSET],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Slide sheet up when modal opens
+  useEffect(() => {
+    if (modalMode !== null) {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [modalMode]);
+
+  // Keyboard listeners — move sheet up/down as keyboard appears
+  useEffect(() => {
+    if (modalMode === null) return;
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: -e.endCoordinates.height,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      Animated.timing(keyboardAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    });
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, [modalMode]);
+
+  // Android back button closes sheet
+  useEffect(() => {
+    if (modalMode === null) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeModal();
+      return true;
+    });
+    return () => sub.remove();
+  }, [modalMode]);
+
+  const openAdd  = () => { setEditingTodo(null); setModalMode('add'); };
+  const openEdit = (todo) => { setEditingTodo(todo); setModalMode('edit'); };
+  const closeModal = () => {
+    Keyboard.dismiss();
+    keyboardAnim.setValue(0);
+    Animated.timing(slideAnim, {
+      toValue: SHEET_OFFSET,
+      duration: 260,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setModalMode(null);
+      setEditingTodo(null);
+    });
+  };
 
   const handleAdd = async (text, priority, status, dueDate) => {
     setIsSaving(true);
@@ -290,101 +364,112 @@ function MainApp() {
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} translucent backgroundColor="transparent" />
 
+      {/* ── Fixed header area — never scrolls ── */}
+      <View style={styles.fixedHeader}>
+        <HeaderBanner
+          activeCount={activeCount}
+          completedCount={completedCount}
+          overdueCount={overdueCount}
+          onSettings={() => setShowSettings(true)}
+          session={session}
+          showPills={showPills}
+        />
+
+        {/* Offline banner */}
+        {!isOnline && (
+          <View style={styles.offlineBar}>
+            <Text style={styles.offlineText}>
+              ☁️  You're offline — changes will sync when reconnected
+              {pendingCount > 0 ? ` (${pendingCount} pending)` : ''}
+            </Text>
+          </View>
+        )}
+
+        {/* Pending-sync badge */}
+        {isOnline && pendingCount > 0 && (
+          <View style={[styles.syncBar, { marginBottom: 12 }]}>
+            <ActivityIndicator size="small" color={GREEN} style={{ marginRight: 6 }} />
+            <Text style={styles.syncText}>
+              Syncing {pendingCount} change{pendingCount !== 1 ? 's' : ''}…
+            </Text>
+          </View>
+        )}
+
+        {/* Search bar */}
+        <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <Text style={[styles.searchIcon, { color: theme.textMuted }]}>🔍</Text>
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search tasks..."
+            placeholderTextColor={theme.textMuted}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.searchClear, { color: theme.textMuted }]}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter tabs */}
+        <FilterBar filter={filter} onFilter={setFilter} />
+
+        {/* Stats row */}
+        <View style={styles.stats}>
+          <Text style={[styles.statsText, { color: theme.textMuted }]}>
+            {activeCount} task{activeCount !== 1 ? 's' : ''} left
+          </Text>
+          {completedCount > 0 && (
+            <TouchableOpacity onPress={clearCompleted}>
+              <Text style={[styles.clearBtn, { color: GREEN }]}>
+                Clear completed ({completedCount})
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {error && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>⚠️ {error}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* ── Scrollable task list only ── */}
       <FlatList
         style={styles.list}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.taskContent}
         data={filtered}
         keyExtractor={(item) => item.id}
         keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={
-          <>
-            {/* Pleasant header banner */}
-            <HeaderBanner
-              activeCount={activeCount}
-              completedCount={completedCount}
-              overdueCount={overdueCount}
-              onSettings={() => setShowSettings(true)}
-              session={session}
-            />
-
-            {/* Offline banner */}
-            {!isOnline && (
-              <View style={styles.offlineBar}>
-                <Text style={styles.offlineText}>
-                  ☁️  You're offline — changes will sync when reconnected
-                  {pendingCount > 0 ? ` (${pendingCount} pending)` : ''}
-                </Text>
-              </View>
-            )}
-
-            {/* Pending-sync badge when back online but queue not yet flushed */}
-            {isOnline && pendingCount > 0 && (
-              <View style={[styles.syncBar, { marginBottom: 12 }]}>
-                <ActivityIndicator size="small" color={GREEN} style={{ marginRight: 6 }} />
-                <Text style={styles.syncText}>
-                  Syncing {pendingCount} change{pendingCount !== 1 ? 's' : ''}…
-                </Text>
-              </View>
-            )}
-
-            {/* Search bar */}
-            <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.searchIcon, { color: theme.textMuted }]}>🔍</Text>
-              <TextInput
-                style={[styles.searchInput, { color: theme.text }]}
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search tasks..."
-                placeholderTextColor={theme.textMuted}
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-              />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Text style={[styles.searchClear, { color: theme.textMuted }]}>✕</Text>
-                </TouchableOpacity>
-              )}
+        onScroll={(e) => {
+          const shouldShow = e.nativeEvent.contentOffset.y < 50;
+          if (shouldShow !== pillsShown.current) {
+            pillsShown.current = shouldShow;
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setShowPills(shouldShow);
+          }
+        }}
+        scrollEventThrottle={16}
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={GREEN} />
+              <Text style={[styles.mutedText, { color: theme.textMuted }]}>Loading tasks...</Text>
             </View>
-
-            {/* Filter tabs */}
-            <FilterBar filter={filter} onFilter={setFilter} />
-
-            {/* Stats row */}
-            <View style={styles.stats}>
-              <Text style={[styles.statsText, { color: theme.textMuted }]}>
-                {activeCount} task{activeCount !== 1 ? 's' : ''} left
+          ) : (
+            <View style={styles.center}>
+              <Text style={[styles.emptyIcon, { color: theme.textMuted }]}>✦</Text>
+              <Text style={[styles.mutedText, { color: theme.textMuted }]}>
+                {search ? `No tasks matching "${search}"` :
+                 filter === 'all' ? 'Tap + Add Task to get started!' :
+                 `No ${FILTER_LABELS[filter]} tasks.`}
               </Text>
-              {completedCount > 0 && (
-                <TouchableOpacity onPress={clearCompleted}>
-                  <Text style={[styles.clearBtn, { color: GREEN }]}>
-                    Clear completed ({completedCount})
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
-
-            {error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>⚠️ {error}</Text>
-              </View>
-            )}
-            {loading && (
-              <View style={styles.center}>
-                <ActivityIndicator size="large" color={GREEN} />
-                <Text style={[styles.mutedText, { color: theme.textMuted }]}>Loading tasks...</Text>
-              </View>
-            )}
-            {!loading && filtered.length === 0 && (
-              <View style={styles.center}>
-                <Text style={[styles.emptyIcon, { color: theme.textMuted }]}>✦</Text>
-                <Text style={[styles.mutedText, { color: theme.textMuted }]}>
-                  {search ? `No tasks matching "${search}"` :
-                   filter === 'all' ? 'Tap + Add Task to get started!' :
-                   `No ${FILTER_LABELS[filter]} tasks.`}
-                </Text>
-              </View>
-            )}
-          </>
+          )
         }
         renderItem={({ item }) => (
           <TodoItem todo={item} onToggle={toggleTodo} onDelete={deleteTodo} onEdit={openEdit} />
@@ -397,15 +482,20 @@ function MainApp() {
         <Text style={styles.fabText}>Add Task</Text>
       </TouchableOpacity>
 
-      {/* Add / Edit modal — backdrop is absolute so keyboard resize never affects it */}
-      <Modal visible={modalMode !== null} transparent animationType="slide" hardwareAccelerated onRequestClose={closeModal}>
-        {/* Backdrop sits outside KeyboardAvoidingView — it never resizes with the keyboard */}
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeModal} />
-        <KeyboardAvoidingView
-          style={styles.modalKAV}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          pointerEvents="box-none"
-        >
+      {/* Backdrop — fades in with the sheet, non-interactive when hidden */}
+      <Animated.View
+        style={[styles.modalBackdrop, { opacity: backdropOpacity }]}
+        pointerEvents={modalMode !== null ? 'auto' : 'none'}
+      >
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={closeModal} />
+      </Animated.View>
+
+      {/* Sheet — always mounted and off-screen, slides up on open + moves up with keyboard */}
+      <Animated.View
+        style={[styles.slideSheet, { transform: [{ translateY: Animated.add(slideAnim, keyboardAnim) }] }]}
+        pointerEvents={modalMode !== null ? 'box-none' : 'none'}
+      >
+        <View style={styles.modalKAV}>
           <View style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={[styles.handle, { backgroundColor: theme.cardBorder }]} />
             <Text style={[styles.modalTitle, { color: theme.text }]}>
@@ -418,9 +508,10 @@ function MainApp() {
               isEditMode={isEdit}
               onSubmit={isEdit ? handleUpdate : handleAdd}
               onClose={closeModal}
+              autoFocus={modalMode !== null}
             />
 
-            {/* Saving overlay with smooth spinner */}
+            {/* Saving overlay */}
             {isSaving && (
               <View style={styles.savingOverlay}>
                 <View style={[styles.savingCard, { backgroundColor: theme.card }]}>
@@ -430,8 +521,8 @@ function MainApp() {
               </View>
             )}
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </View>
+      </Animated.View>
 
       {/* Settings */}
       <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
@@ -471,9 +562,10 @@ export default function App() {
 // ─── Styles ────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0 },
-  list:    { flex: 1 },
-  content: { padding: 20, paddingBottom: 120 },
+  safe:        { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0 },
+  fixedHeader: { paddingHorizontal: 20, paddingTop: 20 },
+  list:        { flex: 1 },
+  taskContent: { paddingHorizontal: 20, paddingBottom: 120 },
 
 
   overdueBar:  { marginTop: 10, backgroundColor: '#E5484D18', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#E5484D44' },
@@ -515,14 +607,20 @@ const styles = StyleSheet.create({
   fabIcon: { color: '#fff', fontSize: 22, fontWeight: '300', lineHeight: 24 },
   fabText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 
-  // Backdrop: absolute fill so it is never resized by the keyboard
+  // Backdrop: absolute fill, opacity animated by slideAnim
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#00000088',
   },
+  // Always-mounted sheet pinned to the bottom, slides via translateY
+  slideSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   // KAV only wraps the sheet — justifyContent pushes it to the bottom
   modalKAV: {
-    flex: 1,
     justifyContent: 'flex-end',
   },
   modalSheet: {
